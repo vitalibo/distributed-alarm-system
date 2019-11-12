@@ -1,0 +1,5 @@
+{
+  "metricName": "foo",
+  "ruleId": "bar",
+  "state": "Alarm"
+}

@@ -1,0 +1,19 @@
+[
+  [
+    {
+      "name": "foo",
+      "timestamp": 1573506683,
+      "value": 1.2
+    },
+    {
+      "name": "bar",
+      "timestamp": 1573506683,
+      "value": 0.2
+    },
+    {
+      "name": "taz",
+      "timestamp": 1573506683,
+      "value": 12.1
+    }
+  ]
+]

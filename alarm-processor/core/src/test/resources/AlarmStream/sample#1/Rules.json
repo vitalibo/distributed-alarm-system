@@ -1,0 +1,37 @@
+[
+  [
+    {
+      "table": "database.table",
+      "timestamp": 1573506683,
+      "type": "Load",
+      "payload": {
+        "id": "669a67d7-0ff8-47e8-9a0e-1229238f423e",
+        "metricName": "foo",
+        "condition": "GreaterThanOrEqualToThreshold",
+        "threshold": 1.41
+      }
+    },
+    {
+      "table": "database.table",
+      "timestamp": 1573506683,
+      "type": "Load",
+      "payload": {
+        "id": "99941422-8fc7-4b1d-bada-2c6c6ef91c14",
+        "metricName": "bar",
+        "condition": "GreaterThanThreshold",
+        "threshold": -0.17
+      }
+    },
+    {
+      "table": "database.table",
+      "timestamp": 1573506683,
+      "type": "Load",
+      "payload": {
+        "id": "ab0532c6-9156-4439-a3d3-f18abaeabaed",
+        "metricName": "baz",
+        "condition": "LessThanThreshold",
+        "threshold": 12.17
+      }
+    }
+  ]
+]

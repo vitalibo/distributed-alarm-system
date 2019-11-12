@@ -1,0 +1,8 @@
+{
+  "table": "foo",
+  "timestamp": 1573506683,
+  "type": "Insert",
+  "payload": {
+    "foo": "bar"
+  }
+}

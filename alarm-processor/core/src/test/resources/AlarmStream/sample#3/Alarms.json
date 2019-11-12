@@ -1,0 +1,40 @@
+[
+  [
+    {
+      "metricName": "foo",
+      "ruleId": "baz",
+      "state": "Ok"
+    }
+  ],
+  [
+  ],
+  [
+    {
+      "metricName": "foo",
+      "ruleId": "baz",
+      "state": "Pending"
+    }
+  ],
+  [
+    {
+      "metricName": "foo",
+      "ruleId": "baz",
+      "state": "Alarm"
+    }
+  ],
+  [
+  ],
+  [
+  ],
+  [
+  ],
+  [
+  ],
+  [
+    {
+      "metricName": "foo",
+      "ruleId": "baz",
+      "state": "Pending"
+    }
+  ]
+]

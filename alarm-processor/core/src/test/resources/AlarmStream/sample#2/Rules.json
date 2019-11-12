@@ -1,0 +1,31 @@
+[
+  [
+    {
+      "table": "database.table",
+      "timestamp": 1573506683,
+      "type": "Load",
+      "payload": {
+        "id": "baz",
+        "metricName": "foo",
+        "condition": "GreaterThanOrEqualToThreshold",
+        "threshold": 1.0
+      }
+    }
+  ],
+  [
+  ],
+  [
+  ],
+  [
+  ],
+  [
+  ],
+  [
+  ],
+  [
+  ],
+  [
+  ],
+  [
+  ]
+]

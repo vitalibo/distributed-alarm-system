@@ -1,0 +1,6 @@
+{
+  "id": "foo",
+  "metricName": "bar",
+  "condition": "LessThanOrEqualToThreshold",
+  "threshold": 12.34
+}

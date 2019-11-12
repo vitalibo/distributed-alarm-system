@@ -1,0 +1,14 @@
+[
+  [
+    {
+      "metricName": "foo",
+      "ruleId": "669a67d7-0ff8-47e8-9a0e-1229238f423e",
+      "state": "Ok"
+    },
+    {
+      "metricName": "bar",
+      "ruleId": "99941422-8fc7-4b1d-bada-2c6c6ef91c14",
+      "state": "Alarm"
+    }
+  ]
+]

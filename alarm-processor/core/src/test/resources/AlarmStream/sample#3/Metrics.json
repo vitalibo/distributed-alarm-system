@@ -1,0 +1,65 @@
+[
+  [
+    {
+      "name": "foo",
+      "timestamp": 1573506683,
+      "value": 0.7
+    }
+  ],
+  [
+    {
+      "name": "foo",
+      "timestamp": 1573506684,
+      "value": 0.9
+    }
+  ],
+  [
+    {
+      "name": "foo",
+      "timestamp": 1573506685,
+      "value": 1.1
+    }
+  ],
+  [
+    {
+      "name": "foo",
+      "timestamp": 1573506686,
+      "value": 1.3
+    }
+  ],
+  [
+    {
+      "name": "foo",
+      "timestamp": 1573506687,
+      "value": 1.5
+    }
+  ],
+  [
+    {
+      "name": "foo",
+      "timestamp": 1573506688,
+      "value": 1.3
+    }
+  ],
+  [
+    {
+      "name": "foo",
+      "timestamp": 1573506689,
+      "value": 1.1
+    }
+  ],
+  [
+    {
+      "name": "foo",
+      "timestamp": 1573506690,
+      "value": 0.9
+    }
+  ],
+  [
+    {
+      "name": "foo",
+      "timestamp": 1573506691,
+      "value": 0.7
+    }
+  ]
+]

@@ -1,0 +1,13 @@
+{
+  "data": {
+    "foo": "bar"
+  },
+  "metadata": {
+    "timestamp": "2019-05-15T00:51:38.301411Z",
+    "record-type": "data",
+    "operation": "insert",
+    "partition-key-type": "schema-table",
+    "schema-name": "foo",
+    "table-name": "bar"
+  }
+}

@@ -1,0 +1,30 @@
+[
+  [
+    {
+      "data": {
+        "foo": "bar"
+      },
+      "metadata": {
+        "operation": "insert"
+      }
+    },
+    {
+      "data": {
+        "foo": "baz"
+      },
+      "metadata": {
+        "operation": "update"
+      }
+    }
+  ],
+  [
+    {
+      "data": {
+        "foo": "taz"
+      },
+      "metadata": {
+        "operation": "delete"
+      }
+    }
+  ]
+]

@@ -1,0 +1,19 @@
+Parameters:
+  Environment: 'dev'
+  Name: 'alarm-sys'
+  MySQLInstanceClass: 'db.t2.micro'
+  MySQLInstanceEngineVersion: '5.7.26'
+  MySQLDBName: 'alarmdb'
+  MySQLMasterUsername: 'dasuser'
+  MySQLMasterUserPassword: '3e1f60af208b'
+  ReplicationInstanceClass: 'dms.t2.micro'
+  ReplicationEngineVersion: '3.1.4'
+  SubnetIds: 'subnet-92c082f6,subnet-296df75f'
+Tags:
+  Environment: 'dev'
+StackPolicy:
+  Statement:
+    - Effect: Allow
+      NotAction: Update:Delete
+      Principal: '*'
+      Resource: '*'

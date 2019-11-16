@@ -1,0 +1,227 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'This template create AWS infrastructure for distributed alarm system'
+Parameters:
+  Environment:
+    Type: String
+    Description: 'Environment name'
+  Name:
+    Type: String
+    Description: 'Service name that will be prefixed to resource names'
+  MySQLInstanceClass:
+    Type: String
+    Description: 'Choose an appropriate instance class for your RDS MySQL instance.'
+  MySQLInstanceEngineVersion:
+    Type: String
+    Description: 'The version number of the database engine to use.'
+  MySQLDBName:
+    Type: String
+    Description: 'The name of the database to create when the DB instance is created.'
+  MySQLMasterUsername:
+    Type: String
+    Description: 'The master user name for the DB instance.'
+  MySQLMasterUserPassword:
+    Type: String
+    Description: 'The password for the master user.'
+    NoEcho: true
+  ReplicationInstanceClass:
+    Type: String
+    Description: 'Choose an appropriate instance class for your replication needs.'
+  ReplicationEngineVersion:
+    Type: String
+    Description: 'Choose an AWS DMS version to run on your replication instance.'
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: 'One or more subnet IDs to be assigned to the subnet groups.'
+  Version:
+    Type: String
+    Description: 'Update version.'
+Resources:
+
+  MetricStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub '${Name}-metric-stream'
+      RetentionPeriodHours: 24
+      ShardCount: 1
+  RuleStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub '${Name}-rule-stream'
+      RetentionPeriodHours: 24
+      ShardCount: 1
+  AlarmStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub '${Name}-alarm-stream'
+      RetentionPeriodHours: 24
+      ShardCount: 1
+
+  MetricStreamCheckpointTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${Name}-metric-checkpoint-table'
+      AttributeDefinitions:
+        - AttributeName: 'leaseKey'
+          AttributeType: 'S'
+      KeySchema:
+        - AttributeName: 'leaseKey'
+          KeyType: 'HASH'
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 1
+  RuleStreamCheckpointTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${Name}-rule-checkpoint-table'
+      AttributeDefinitions:
+        - AttributeName: 'leaseKey'
+          AttributeType: 'S'
+      KeySchema:
+        - AttributeName: 'leaseKey'
+          KeyType: 'HASH'
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 1
+
+  MySQLSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${Name}-mysql-sg'
+      GroupDescription: 'Enables RDS MySQL access via port 3306'
+      SecurityGroupIngress:
+        - IpProtocol: 'tcp'
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+  MySQLSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: 'Subnet group available for RDS MySQL'
+      SubnetIds: !Ref SubnetIds
+  MySQLParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: 'Enables bin_log prerequisites for using change data capture (CDC)'
+      Family: 'mysql5.7'
+      Parameters:
+        binlog_format: 'ROW'
+        binlog_checksum: 'NONE'
+  MySQLInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      BackupRetentionPeriod: 1
+      DBInstanceClass: !Ref MySQLInstanceClass
+      DBSubnetGroupName: !Ref MySQLSubnetGroup
+      DBName: !Ref MySQLDBName
+      DBParameterGroupName: !Ref MySQLParameterGroup
+      Engine: 'MySQL'
+      EngineVersion: !Ref MySQLInstanceEngineVersion
+      MasterUsername: !Ref MySQLMasterUsername
+      MasterUserPassword: !Ref MySQLMasterUserPassword
+      MultiAZ: false
+      PubliclyAccessible: true
+      StorageType: 'gp2'
+      VPCSecurityGroups:
+        - !GetAtt MySQLSecurityGroup.GroupId
+
+  ReplicationSubnetGroup:
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupDescription: 'Subnet group available for DMS'
+      SubnetIds: !Ref SubnetIds
+  ReplicationInstance:
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      AllocatedStorage: 20
+      EngineVersion: !Ref ReplicationEngineVersion
+      MultiAZ: false
+      PubliclyAccessible: false
+      ReplicationInstanceClass: !Ref ReplicationInstanceClass
+      ReplicationSubnetGroupIdentifier: !Ref ReplicationSubnetGroup
+  MySQLSourceEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: 'source'
+      EngineName: 'mysql'
+      ServerName: !GetAtt MySQLInstance.Endpoint.Address
+      Port: 3306
+      DatabaseName: !Ref MySQLDBName
+      Username: !Ref MySQLMasterUsername
+      Password: !Ref MySQLMasterUserPassword
+  KinesisTargetRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Name}-kinesis-target-endpoint-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'dms.amazonaws.com'
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: 'Inline'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kinesis:PutRecord
+                  - kinesis:PutRecords
+                  - kinesis:DescribeStream
+                Resource: !GetAtt RuleStream.Arn
+  KinesisTargetEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: 'target'
+      EngineName: 'kinesis'
+      KinesisSettings:
+        MessageFormat: 'json'
+        ServiceAccessRoleArn: !GetAtt KinesisTargetRole.Arn
+        StreamArn: !GetAtt RuleStream.Arn
+  ReplicationTask:
+    Type: AWS::DMS::ReplicationTask
+    Properties:
+      MigrationType: 'cdc'
+      ReplicationInstanceArn: !Ref ReplicationInstance
+      SourceEndpointArn: !Ref MySQLSourceEndpoint
+      TargetEndpointArn: !Ref KinesisTargetEndpoint
+      TableMappings: !Sub |
+        {
+          "rules": [
+            {
+              "rule-type": "selection",
+              "rule-id": "1",
+              "rule-name": "1",
+              "rule-action": "include",
+              "object-locator": {
+                "schema-name": "${MySQLDBName}",
+                "table-name": "rule"
+              }
+            },
+            {
+              "rule-type": "object-mapping",
+              "rule-id": "2",
+              "rule-name": "2",
+              "rule-action": "map-record-to-record",
+              "target-table-name": "rule",
+              "object-locator": {
+                "schema-name": "${MySQLDBName}",
+                "table-name": "rule"
+              },
+              "mapping-parameters": {
+                "partition-key-type": "schema-table"
+              }
+            }
+          ]
+        }
+Outputs:
+  MySQLAddress:
+    Value: !GetAtt MySQLInstance.Endpoint.Address
+  MySQLPort:
+    Value: !GetAtt MySQLInstance.Endpoint.Port
+  Version:
+    Value: !Ref Version

@@ -27,7 +27,7 @@
         <spark.version>2.4.3</spark.version>
         <aws.version>1.11.671</aws.version>
         <typesafe.version>1.4.0</typesafe.version>
-        <jackson.version>2.6.7</jackson.version>
+        <jackson.version>2.9.10.1</jackson.version>
         <lombok.version>1.18.6</lombok.version>
         <slf4j.version>1.7.26</slf4j.version>
         <testng.version>6.14.3</testng.version>

@@ -1,0 +1,4 @@
+{
+  "condition": "GreaterThanOrEqualToThreshold",
+  "threshold": 1.234
+}

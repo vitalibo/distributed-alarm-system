@@ -1,0 +1,19 @@
+version: '3.3'
+services:
+  mysqdb:
+    image: mysql:5.7
+    environment:
+      MYSQL_DATABASE: 'alarmdb'
+      MYSQL_USER: 'dasuser'
+      MYSQL_PASSWORD: '3e1f60af208b'
+      MYSQL_ROOT_PASSWORD: '3e1f60af208b'
+    ports:
+      - '3306:3306'
+    expose:
+      - '3306'
+  redis:
+    image: redis:5.0
+    ports:
+      - '6379:6379'
+    expose:
+      - '6379'

@@ -21,6 +21,7 @@ function param() {
 
 ENVIRONMENT=`param 'Environment'`
 NAME=`param 'Name'`
+BUCKET=`param 'Bucket'`
 VERSION=`date -u +%Y%m%dT%H%M%SZ`
 
 function params() {
@@ -28,12 +29,27 @@ function params() {
 }
 
 echo 'Package/Copy artifacts initialized'
-# TODO: copy artifacts to S3
+mvn clean package -DskipTests=true -P $ENVIRONMENT -f ./../../pom.xml
+
+STACK_NAME="$NAME-infrastructure"
+PACKAGED_TEMPLATE=`mktemp`
+aws cloudformation package \
+  --template-file stack.yaml \
+  --s3-bucket $BUCKET \
+  --output-template-file $PACKAGED_TEMPLATE \
+  --profile $PROFILE
 
 aws cloudformation deploy \
-  --stack-name "$NAME-infrastructure" \
+  --stack-name $STACK_NAME \
   --parameter-overrides `params 'Parameters'` Version=$VERSION \
   --capabilities 'CAPABILITY_NAMED_IAM' \
   --tags `params 'Tags'` \
   --profile $PROFILE \
-  --template-file stack.yaml
+  --template-file $PACKAGED_TEMPLATE
+
+echo 'Stack Outputs'
+aws cloudformation describe-stacks \
+  --stack-name $STACK_NAME \
+  --query 'Stacks[0].Outputs' \
+  --profile $PROFILE \
+  --output text

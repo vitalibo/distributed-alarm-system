@@ -7,18 +7,15 @@ Parameters:
   Name:
     Type: String
     Description: 'Service name that will be prefixed to resource names'
+  Bucket:
+    Type: String
+    Description: 'S3 bucket name with source codes'
   MySQLInstanceClass:
     Type: String
     Description: 'Choose an appropriate instance class for your RDS MySQL instance.'
   MySQLInstanceEngineVersion:
     Type: String
     Description: 'The version number of the database engine to use.'
-  MySQLDBName:
-    Type: String
-    Description: 'The name of the database to create when the DB instance is created.'
-  MySQLMasterUsername:
-    Type: String
-    Description: 'The master user name for the DB instance.'
   MySQLMasterUserPassword:
     Type: String
     Description: 'The password for the master user.'
@@ -29,9 +26,39 @@ Parameters:
   ReplicationEngineVersion:
     Type: String
     Description: 'Choose an AWS DMS version to run on your replication instance.'
+  RedisInstanceClass:
+    Type: String
+    Description: 'Choose an appropriate instance class for your ElastiCache Redis instance.'
+  RedisInstanceEngineVersion:
+    Type: String
+    Description: 'The version number of the redis engine to use.'
+  EmrMasterInstanceClass:
+    Type: String
+    Description: 'The EC2 instance type for Master instances in the instance group.'
+  EmrCoreInstanceClass:
+    Type: String
+    Description: 'The EC2 instance type for Core instances in the instance group.'
+  EmrCoreInstanceCount:
+    Type: Number
+    Description: 'Target number of instances for the instance group.'
+  EmrReleaseLabel:
+    Type: String
+    Description: 'Amazon EMR release label'
+  SparkJobSubmitterSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: 'Spark Job Submitter Security Group Id (see: https://github.com/vitalibo/spark-aws-orchestration)'
+  IngressCidrIp:
+    Type: String
+    Description: 'Your IPv4 CIDR block'
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
     Description: 'One or more subnet IDs to be assigned to the subnet groups.'
+  Vpc:
+    Type: AWS::EC2::VPC::Id
+    Description: 'Amazon VPC Id.'
+  KeyPairName:
+    Type: String
+    Description: 'Choose SSH key pair name.'
   Version:
     Type: String
     Description: 'Update version.'
@@ -59,7 +86,7 @@ Resources:
   MetricStreamCheckpointTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub '${Name}-metric-checkpoint-table'
+      TableName: !Sub '${Name}-checkpoint-metric'
       AttributeDefinitions:
         - AttributeName: 'leaseKey'
           AttributeType: 'S'
@@ -72,7 +99,7 @@ Resources:
   RuleStreamCheckpointTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub '${Name}-rule-checkpoint-table'
+      TableName: !Sub '${Name}-checkpoint-rule'
       AttributeDefinitions:
         - AttributeName: 'leaseKey'
           AttributeType: 'S'
@@ -92,7 +119,7 @@ Resources:
         - IpProtocol: 'tcp'
           FromPort: 3306
           ToPort: 3306
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref IngressCidrIp
   MySQLSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -113,11 +140,11 @@ Resources:
       BackupRetentionPeriod: 1
       DBInstanceClass: !Ref MySQLInstanceClass
       DBSubnetGroupName: !Ref MySQLSubnetGroup
-      DBName: !Ref MySQLDBName
+      DBName: 'alarmdb'
       DBParameterGroupName: !Ref MySQLParameterGroup
       Engine: 'MySQL'
       EngineVersion: !Ref MySQLInstanceEngineVersion
-      MasterUsername: !Ref MySQLMasterUsername
+      MasterUsername: 'dasuser'
       MasterUserPassword: !Ref MySQLMasterUserPassword
       MultiAZ: false
       PubliclyAccessible: true
@@ -146,8 +173,8 @@ Resources:
       EngineName: 'mysql'
       ServerName: !GetAtt MySQLInstance.Endpoint.Address
       Port: 3306
-      DatabaseName: !Ref MySQLDBName
-      Username: !Ref MySQLMasterUsername
+      DatabaseName: 'alarmdb'
+      Username: 'dasuser'
       Password: !Ref MySQLMasterUserPassword
   KinesisTargetRole:
     Type: AWS::IAM::Role
@@ -198,7 +225,7 @@ Resources:
               "rule-name": "1",
               "rule-action": "include",
               "object-locator": {
-                "schema-name": "${MySQLDBName}",
+                "schema-name": "alarmdb",
                 "table-name": "rule"
               }
             },
@@ -209,7 +236,7 @@ Resources:
               "rule-action": "map-record-to-record",
               "target-table-name": "rule",
               "object-locator": {
-                "schema-name": "${MySQLDBName}",
+                "schema-name": "alarmdb",
                 "table-name": "rule"
               },
               "mapping-parameters": {
@@ -218,10 +245,271 @@ Resources:
             }
           ]
         }
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${Name}-api-lambda'
+      RetentionInDays: 3
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Name}-api-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'lambda.amazonaws.com'
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: 'Runtime'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt LambdaLogGroup.Arn
+              - Effect: Allow
+                Action:
+                  - ec2:CreateNetworkInterface
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DeleteNetworkInterface
+                Resource: '*'
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code: ../../alarm-api/aws/target/alarm-api-aws-1.0-SNAPSHOT.jar
+      FunctionName: !Sub '${Name}-api-lambda'
+      Description: 'Api lambda for Distribute Alarm System'
+      Handler: 'com.github.vitalibo.alarm.api.infrastructure.aws.lambda.LambdaHandler'
+      MemorySize: 512
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: 'java8'
+      Timeout: 30
+      VpcConfig:
+        SecurityGroupIds:
+          - !GetAtt LambdaSecurityGroup.GroupId
+        SubnetIds: !Ref SubnetIds
+      Environment:
+        Variables:
+          MYSQL_HOST: !GetAtt MySQLInstance.Endpoint.Address
+          REDIS_HOST: !GetAtt RedisCluster.RedisEndpoint.Address
+      Tags:
+        - Key: 'Environment'
+          Value: !Ref Environment
+        - Key: 'Product'
+          Value: !Ref Name
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${Name}-api-lambda-sg'
+      GroupDescription: 'Allow AWS Lambda access to RDS MySQL and ElastiCache Redis.'
+      VpcId: !Ref Vpc
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt LambdaFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: 'apigateway.amazonaws.com'
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*"
+
+  Api:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub '${Name}-rest-api'
+      Description: 'Rest API for Distributed Alarm System'
+  ApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: '{proxy+}'
+      RestApiId: !Ref Api
+  ApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: 'NONE'
+      HttpMethod: 'ANY'
+      Integration:
+        Type: 'AWS_PROXY'
+        IntegrationHttpMethod: 'POST'
+        Uri: !Sub
+          - 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionArn}/invocations'
+          - FunctionArn: !GetAtt LambdaFunction.Arn
+      ResourceId: !Ref ApiResource
+      RestApiId: !Ref Api
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref Api
+    DependsOn:
+      - ApiMethod
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref ApiDeployment
+      RestApiId: !Ref Api
+      StageName: 'v1'
+    DependsOn:
+      - ApiDeployment
+
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      AutoMinorVersionUpgrade: true
+      CacheNodeType: !Ref RedisInstanceClass
+      CacheParameterGroupName: !Ref RedisParameterGroup
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref RedisSecurityGroup
+      Engine: 'redis'
+      EngineVersion: !Ref RedisInstanceEngineVersion
+      NumCacheNodes: 1
+      Port: 6379
+  RedisParameterGroup:
+    Type: AWS::ElastiCache::ParameterGroup
+    Properties:
+      Description: !Sub AWS::StackName
+      CacheParameterGroupFamily: 'redis5.0'
+      Properties: {}
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: !Sub AWS::StackName
+      SubnetIds: !Ref SubnetIds
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${Name}-elasticache-redis-sg'
+      GroupDescription: !Sub 'Enable access to ElastiCache Redis cluster'
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: 'tcp'
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !GetAtt LambdaSecurityGroup.GroupId
+        - IpProtocol: 'tcp'
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !GetAtt EmrSecurityGroup.GroupId
+        - IpProtocol: 'tcp'
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: !Ref IngressCidrIp
+
+  EmrServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Name}-emr-service-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'elasticmapreduce.amazonaws.com'
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole'
+  EmrInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Name}-emr-instance-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'ec2.amazonaws.com'
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role'
+  EmrInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${Name}-emr-instance-profile'
+      Path: /
+      Roles:
+        - !Ref EmrInstanceRole
+  EmrSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${Name}-spark-cluster-sg'
+      GroupDescription: 'Enable access to Amazon EMR with Apache Spark'
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: 'tcp'
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: !Ref IngressCidrIp
+        - IpProtocol: 'tcp'
+          FromPort: '8998'
+          ToPort: '8998'
+          CidrIp: !Ref IngressCidrIp
+        - IpProtocol: 'tcp'
+          FromPort: '8998'
+          ToPort: '8998'
+          SourceSecurityGroupId: !Ref SparkJobSubmitterSecurityGroupId
+  EmrSparkCluster:
+    Type: AWS::EMR::Cluster
+    Properties:
+      Name: !Sub '${Name}-spark-cluster'
+      ReleaseLabel: !Ref EmrReleaseLabel
+      Applications:
+        - Name: 'Spark'
+        - Name: 'Livy'
+      Configurations:
+        - Classification: 'spark'
+          ConfigurationProperties:
+            maximizeResourceAllocation: 'false'
+        - Classification: 'spark-env'
+          Configurations:
+            - Classification: 'export'
+              ConfigurationProperties:
+                MYSQL_HOST: !GetAtt MySQLInstance.Endpoint.Address
+                REDIS_HOST: !GetAtt RedisCluster.RedisEndpoint.Address
+        - Classification: 'spark-defaults'
+          ConfigurationProperties:
+            spark.dynamicAllocation.enabled: 'false'
+        - Classification: 'livy-conf'
+          ConfigurationProperties:
+            livy.spark.deploy-mode: 'client'
+            livy.impersonation.enabled: 'true'
+      Instances:
+        AdditionalMasterSecurityGroups:
+          - !GetAtt EmrSecurityGroup.GroupId
+        AdditionalSlaveSecurityGroups:
+          - !GetAtt EmrSecurityGroup.GroupId
+        MasterInstanceGroup:
+          InstanceCount: 1
+          InstanceType: !Ref EmrMasterInstanceClass
+          Market: 'SPOT'
+        CoreInstanceGroup:
+          InstanceCount: !Ref EmrCoreInstanceCount
+          InstanceType: !Ref EmrCoreInstanceClass
+          Market: 'SPOT'
+        Ec2SubnetId: !Select [0, !Ref SubnetIds]
+        Ec2KeyName: !Ref KeyPairName
+      JobFlowRole: !Ref EmrInstanceProfile
+      ServiceRole: !GetAtt EmrServiceRole.Arn
+
 Outputs:
+  RestApiAddress:
+    Value: !Sub 'https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}'
   MySQLAddress:
     Value: !GetAtt MySQLInstance.Endpoint.Address
   MySQLPort:
     Value: !GetAtt MySQLInstance.Endpoint.Port
+  RedisAddress:
+    Value: !GetAtt RedisCluster.RedisEndpoint.Address
+  RedisPort:
+    Value: !GetAtt RedisCluster.RedisEndpoint.Port
+  EmrAddress:
+    Value: !GetAtt EmrSparkCluster.MasterPublicDNS
   Version:
     Value: !Ref Version

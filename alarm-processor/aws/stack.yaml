@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'This template deploy alarm Apache Spark stream of Distributed Alarm System'
+Parameters:
+  Environment:
+    Type: String
+    Description: 'Environment name'
+  Name:
+    Type: String
+    Description: 'Service name that will be prefixed to resource names'
+  Bucket:
+    Type: String
+    Description: 'S3 bucket name with source codes'
+  LivyHost:
+    Type: String
+    Description: 'Specify Apache Livy host address'
+  Version:
+    Type: String
+    Description: 'Update version'
+Resources:
+  AlarmStream:
+    Type: Custom::SparkJob
+    Properties:
+      ServiceToken: !ImportValue SparkJobSubmitter
+      LivyHost: !Ref LivyHost
+      LivyPort: 8998
+      Parameters:
+        Name: 'Alarm_Stream'
+        File: !Sub 's3://${Bucket}/${Name}/${Environment}/${Version}/alarm-processor-aws-1.0-SNAPSHOT.jar'
+        ClassName: com.github.vitalibo.alarm.processor.Driver
+        Args:
+          - 'alarm_stream'
+        NumExecutors: 2
+        ExecutorCores: 2
+        ExecutorMemory: '2G'
+        ProxyUser: 'hadoop'
+Outputs:
+  Version:
+    Value: !Ref Version

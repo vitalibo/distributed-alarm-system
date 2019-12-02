@@ -4,7 +4,11 @@ import com.github.vitalibo.alarm.processor.core.model.Alarm;
 import com.github.vitalibo.alarm.processor.core.model.EventLog;
 import com.github.vitalibo.alarm.processor.core.model.Metric;
 import com.github.vitalibo.alarm.processor.core.model.Rule;
+import com.github.vitalibo.alarm.processor.core.store.AlarmStore;
+import com.github.vitalibo.alarm.processor.core.store.RuleStore;
+import lombok.RequiredArgsConstructor;
 import org.apache.spark.api.java.Optional;
+import org.apache.spark.api.java.function.Function3;
 import org.apache.spark.streaming.State;
 import scala.Option;
 import scala.Tuple2;
@@ -13,6 +17,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.github.vitalibo.alarm.processor.core.model.Alarm.State.*;
 import static com.github.vitalibo.alarm.processor.core.util.ScalaTypes.tuple;
@@ -72,16 +77,18 @@ public final class AlarmStreamOps {
         state.update(rules);
     }
 
-    public static List<Alarm> triggerAlarm(String ruleId, Optional<Tuple2<Metric, Rule>> value, State<Alarm.State> state) {
-        if (value.isPresent()) {
-            Tuple2<Metric, Rule> tuple = value.get();
-            return triggerAlarm(tuple._1, tuple._2, state);
-        }
+    public static Function3<String, Optional<Tuple2<Metric, Rule>>, State<Alarm.State>, List<Alarm>> triggerAlarm(AlarmStore store) {
+        return (ruleId, value, state) -> {
+            if (value.isPresent()) {
+                Tuple2<Metric, Rule> tuple = value.get();
+                return triggerAlarm(tuple._1, tuple._2, new AlarmState(state, store, ruleId));
+            }
 
-        return Collections.emptyList();
+            return Collections.emptyList();
+        };
     }
 
-    static List<Alarm> triggerAlarm(Metric metric, Rule rule, State<Alarm.State> state) {
+    static List<Alarm> triggerAlarm(Metric metric, Rule rule, AlarmState state) {
         Alarm.State currentState = breakThreshold(metric, rule) ? Alarm : Ok;
         if (state.exists()) {
             Alarm.State previous = state.get();
@@ -114,6 +121,51 @@ public final class AlarmStreamOps {
             default:
                 throw new IllegalStateException();
         }
+    }
+
+    public static List<Tuple2<String, Map<String, Rule>>> initialRuleState(RuleStore store) {
+        return store.getAll()
+            .stream()
+            .map(rule -> tuple(rule.getMetricName(), rule))
+            .collect(Collectors.groupingBy(Tuple2::_1,
+                Collectors.mapping(o -> o._2, Collectors.toMap(tuple -> tuple.getId(), o -> o))))
+            .entrySet().stream()
+            .map(entry -> tuple(entry.getKey(), entry.getValue()))
+            .collect(Collectors.toList());
+    }
+
+    public static List<Tuple2<String, Alarm.State>> initialAlarmState(AlarmStore store) {
+        return store.getAll()
+            .stream()
+            .map(o -> tuple(o.getRuleId(), o.getState()))
+            .collect(Collectors.toList());
+    }
+
+    @RequiredArgsConstructor
+    static class AlarmState {
+
+        private final State<Alarm.State> delegate;
+        private final AlarmStore store;
+        private final String ruleId;
+
+        boolean exists() {
+            return delegate.exists();
+        }
+
+        public Alarm.State get() {
+            return delegate.get();
+        }
+
+        void update(Alarm.State state) {
+            delegate.update(state);
+            store.update(ruleId, state);
+        }
+
+        void remove() {
+            delegate.remove();
+            store.remove(ruleId);
+        }
+
     }
 
 }

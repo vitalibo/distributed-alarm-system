@@ -20,20 +20,25 @@ import com.github.vitalibo.alarm.processor.infrastructure.aws.cloudwatch.CloudWa
 import com.github.vitalibo.alarm.processor.infrastructure.aws.dms.DMSEvent;
 import com.github.vitalibo.alarm.processor.infrastructure.aws.dms.EventLogSource;
 import com.github.vitalibo.alarm.processor.infrastructure.aws.dms.EventLogTranslator;
+import com.github.vitalibo.alarm.processor.infrastructure.aws.elasticache.RedisAlarmStore;
+import com.github.vitalibo.alarm.processor.infrastructure.aws.elasticache.RedisConnectionPool;
 import com.github.vitalibo.alarm.processor.infrastructure.aws.kinesis.KinesisRecordsPublisher;
 import com.github.vitalibo.alarm.processor.infrastructure.aws.kinesis.KinesisStreamSink;
 import com.github.vitalibo.alarm.processor.infrastructure.aws.kinesis.KinesisStreamSource;
 import com.github.vitalibo.alarm.processor.infrastructure.aws.kinesis.transform.DMSEventTranslator;
 import com.github.vitalibo.alarm.processor.infrastructure.aws.kinesis.transform.MetricTranslator;
 import com.github.vitalibo.alarm.processor.infrastructure.aws.kinesis.transform.PutRecordsRequestEntryTranslator;
+import com.github.vitalibo.alarm.processor.infrastructure.aws.rds.MySQLRuleStore;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 
+import java.sql.DriverManager;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -58,6 +63,17 @@ public final class Factory {
 
     private static final String ALARM_STREAM_NAME = "aws.kinesis.alarm.stream.name";
     private static final String ALARM_STREAM_PUBLISHER_BUFFER_SIZE = "aws.kinesis.alarm.publisher.buffer.size";
+
+    private static final String ALARM_STORE_REDIS_ENDPOINT = "aws.elasticache.redis.alarm.endpoint";
+    private static final String ALARM_STORE_REDIS_PORT = "aws.elasticache.redis.alarm.port";
+    private static final String ALARM_STORE_REDIS_DATABASE = "aws.elasticache.redis.alarm.database";
+    private static final String ALARM_STORE_REDIS_PASSWORD = "aws.elasticache.redis.alarm.password";
+
+    private static final String RULE_STORE_MYSQL_ENDPOINT = "aws.rds.mysql.rule.endpoint";
+    private static final String RULE_STORE_MYSQL_PORT = "aws.rds.mysql.rule.port";
+    private static final String RULE_STORE_MYSQL_DATABASE = "aws.rds.mysql.rule.database";
+    private static final String RULE_STORE_MYSQL_USER = "aws.rds.mysql.rule.user";
+    private static final String RULE_STORE_MYSQL_PASSWORD = "aws.rds.mysql.rule.password";
 
     @Getter(lazy = true)
     private static final Factory instance = new Factory(ConfigFactory.load(), ConfigFactory.parseResources("default-application.conf"));
@@ -107,7 +123,10 @@ public final class Factory {
         return new Spark(context);
     }
 
+    @SneakyThrows
     public Stream createAlarmStream() {
+        Class.forName("com.mysql.jdbc.Driver");
+
         return new AlarmStream(
             new KinesisStreamSource<>(
                 kinesis,
@@ -136,6 +155,21 @@ public final class Factory {
                     .withRecordTranslator(PutRecordsRequestEntryTranslator::fromAlarm)
                     .withMaxBufferSize(config.getInt(ALARM_STREAM_PUBLISHER_BUFFER_SIZE))
                     .withKinesisAsyncSupplier(createAmazonKinesisAsyncSupplier(config.getString(AWS_REGION)))),
+            new RedisAlarmStore(
+                new RedisConnectionPool.Builder()
+                    .withEndpoint(config.getString(ALARM_STORE_REDIS_ENDPOINT))
+                    .withPort(config.getInt(ALARM_STORE_REDIS_PORT))
+                    .withDatabase(config.getInt(ALARM_STORE_REDIS_DATABASE))
+                    .withPassword(config.hasPath(ALARM_STORE_REDIS_PASSWORD) ?
+                        config.getString(ALARM_STORE_REDIS_PASSWORD) : "")),
+            new MySQLRuleStore(
+                DriverManager.getConnection(
+                    String.format("jdbc:mysql://%s:%s/%s",
+                        config.getString(RULE_STORE_MYSQL_ENDPOINT),
+                        config.getInt(RULE_STORE_MYSQL_PORT),
+                        config.getString(RULE_STORE_MYSQL_DATABASE)),
+                    config.getString(RULE_STORE_MYSQL_USER),
+                    config.getString(RULE_STORE_MYSQL_PASSWORD))),
             config.getString(SPARK_CHECKPOINT_DIRECTORY));
     }
 

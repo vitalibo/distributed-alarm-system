@@ -8,6 +8,8 @@ import com.github.vitalibo.alarm.processor.core.model.Alarm;
 import com.github.vitalibo.alarm.processor.core.model.EventLog;
 import com.github.vitalibo.alarm.processor.core.model.Metric;
 import com.github.vitalibo.alarm.processor.core.model.Rule;
+import com.github.vitalibo.alarm.processor.core.store.AlarmStore;
+import com.github.vitalibo.alarm.processor.core.store.RuleStore;
 import com.github.vitalibo.alarm.processor.core.util.Jackson;
 import com.github.vitalibo.alarm.processor.core.util.Resources;
 import com.holdenkarau.spark.testing.JavaStreamingSuiteBase;
@@ -31,6 +33,10 @@ public class AlarmStreamTest extends JavaStreamingSuiteBase {
     private Source<Metric> mockMetricSource;
     @Mock
     private Sink<Alarm> mockSink;
+    @Mock(serializable = true)
+    private AlarmStore mockAlarmStore;
+    @Mock(serializable = true)
+    private RuleStore mockRuleStore;
     @Captor
     private ArgumentCaptor<JavaDStream<Alarm>> captorJavaDStream;
 
@@ -46,7 +52,9 @@ public class AlarmStreamTest extends JavaStreamingSuiteBase {
     @BeforeMethod
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        stream = new AlarmStream(mockMetricSource, mockRuleSource, mockSink, "file://tmp/");
+        stream = new AlarmStream(
+            mockMetricSource, mockRuleSource, mockSink,
+            mockAlarmStore, mockRuleStore, "file://tmp/");
     }
 
     @DataProvider

@@ -29,6 +29,7 @@
         <aws.lambda.core.version>1.2.0</aws.lambda.core.version>
         <aws.lambda.core.events>2.2.7</aws.lambda.core.events>
         <lettuce.version>5.1.7.RELEASE</lettuce.version>
+        <apache.commons.pool2.version>2.7.0</apache.commons.pool2.version>
         <mysql.version>6.0.6</mysql.version>
         <freemarker.version>2.3.29</freemarker.version>
         <typesafe.version>1.4.0</typesafe.version>
@@ -150,6 +151,11 @@
                 <groupId>org.freemarker</groupId>
                 <artifactId>freemarker</artifactId>
                 <version>${freemarker.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-pool2</artifactId>
+                <version>${apache.commons.pool2.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>

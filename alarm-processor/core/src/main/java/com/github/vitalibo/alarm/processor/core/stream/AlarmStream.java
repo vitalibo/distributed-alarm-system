@@ -8,6 +8,8 @@ import com.github.vitalibo.alarm.processor.core.model.Alarm;
 import com.github.vitalibo.alarm.processor.core.model.EventLog;
 import com.github.vitalibo.alarm.processor.core.model.Metric;
 import com.github.vitalibo.alarm.processor.core.model.Rule;
+import com.github.vitalibo.alarm.processor.core.store.AlarmStore;
+import com.github.vitalibo.alarm.processor.core.store.RuleStore;
 import com.github.vitalibo.alarm.processor.core.stream.transform.AlarmStreamOps;
 import lombok.RequiredArgsConstructor;
 import org.apache.spark.streaming.StateSpec;
@@ -16,7 +18,6 @@ import org.apache.spark.streaming.api.java.JavaPairDStream;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 
 @RequiredArgsConstructor
@@ -25,6 +26,9 @@ public class AlarmStream implements Stream, Serializable {
     private final transient Source<Metric> metricSource;
     private final transient Source<EventLog<Rule>> ruleSource;
     private final transient Sink<Alarm> alarmSink;
+
+    private final AlarmStore alarmStore;
+    private final RuleStore ruleStore;
 
     private final String checkpoint;
 
@@ -36,7 +40,7 @@ public class AlarmStream implements Stream, Serializable {
             .mapToPair(AlarmStreamOps::metricNameAsKey)
             .mapWithState(
                 StateSpec.function(AlarmStreamOps::updateState)
-                    .initialState(spark.parallelizePairs(Collections.emptyList())))
+                    .initialState(spark.parallelizePairs(AlarmStreamOps.initialRuleState(ruleStore))))
             .stateSnapshots()
             .flatMapValues(Map::values);
 
@@ -45,8 +49,8 @@ public class AlarmStream implements Stream, Serializable {
             .join(rules)
             .mapToPair(AlarmStreamOps::ruleIdAsKey)
             .mapWithState(
-                StateSpec.function(AlarmStreamOps::triggerAlarm)
-                    .initialState(spark.parallelizePairs(Collections.emptyList())))
+                StateSpec.function(AlarmStreamOps.triggerAlarm(alarmStore))
+                    .initialState(spark.parallelizePairs(AlarmStreamOps.initialAlarmState(alarmStore))))
             .flatMap(Collection::iterator);
 
         spark.writeStream(alarmSink, alarms);

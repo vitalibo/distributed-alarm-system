@@ -4,6 +4,8 @@ import com.github.vitalibo.alarm.processor.core.model.Alarm;
 import com.github.vitalibo.alarm.processor.core.model.EventLog;
 import com.github.vitalibo.alarm.processor.core.model.Metric;
 import com.github.vitalibo.alarm.processor.core.model.Rule;
+import com.github.vitalibo.alarm.processor.core.store.AlarmStore;
+import com.github.vitalibo.alarm.processor.core.store.RuleStore;
 import org.apache.spark.streaming.State;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -14,10 +16,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import scala.Tuple2;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.github.vitalibo.alarm.processor.core.model.Rule.Condition.*;
@@ -28,7 +27,11 @@ public class AlarmStreamOpsTest {
     @Mock
     private State<Map<String, Rule>> mockRuleState;
     @Mock
-    private State<Alarm.State> mockAlarmState;
+    private AlarmStreamOps.AlarmState mockAlarmState;
+    @Mock
+    private RuleStore mockRuleStore;
+    @Mock
+    private AlarmStore mockAlarmStore;
 
     @BeforeMethod
     public void setUp() {
@@ -206,6 +209,49 @@ public class AlarmStreamOpsTest {
                 .map(Alarm::getState)
                 .collect(Collectors.toList()),
             expected);
+    }
+
+    @Test
+    public void testInitialRuleState() {
+        Rule rule1 = new Rule();
+        rule1.setId("#1");
+        rule1.setMetricName("foo");
+        Rule rule2 = new Rule();
+        rule2.setId("#2");
+        rule2.setMetricName("foo");
+        Rule rule3 = new Rule();
+        rule3.setId("#3");
+        rule3.setMetricName("bar");
+        Mockito.when(mockRuleStore.getAll()).thenReturn(Arrays.asList(rule1, rule2, rule3));
+
+        List<Tuple2<String, Map<String, Rule>>> actual = AlarmStreamOps.initialRuleState(mockRuleStore);
+
+        Assert.assertNotNull(actual);
+        Assert.assertEquals(actual, Arrays.asList(
+            tuple("bar", new HashMap<String, Rule>() {{
+                put("#3", rule3);
+            }}),
+            tuple("foo", new HashMap<String, Rule>() {{
+                put("#1", rule1);
+                put("#2", rule2);
+            }})));
+    }
+
+    @Test
+    public void testInitialAlarmState() {
+        Alarm alarm1 = new Alarm();
+        alarm1.setRuleId("#1");
+        alarm1.setState(Alarm.State.Ok);
+        Alarm alarm2 = new Alarm();
+        alarm2.setRuleId("#2");
+        alarm2.setState(Alarm.State.Pending);
+        Mockito.when(mockAlarmStore.getAll()).thenReturn(Arrays.asList(alarm1, alarm2));
+
+        List<Tuple2<String, Alarm.State>> actual = AlarmStreamOps.initialAlarmState(mockAlarmStore);
+
+        Assert.assertNotNull(actual);
+        Assert.assertEquals(actual, Arrays.asList(
+            tuple("#1", Alarm.State.Ok), tuple("#2", Alarm.State.Pending)));
     }
 
 }

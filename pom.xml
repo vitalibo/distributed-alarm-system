@@ -28,6 +28,7 @@
         <aws.version>1.11.519</aws.version>
         <aws.lambda.core.version>1.2.0</aws.lambda.core.version>
         <aws.lambda.core.events>2.2.7</aws.lambda.core.events>
+        <azure.eventhub.version>3.0.2</azure.eventhub.version>
         <lettuce.version>5.1.7.RELEASE</lettuce.version>
         <apache.commons.pool2.version>2.7.0</apache.commons.pool2.version>
         <mysql.version>6.0.6</mysql.version>
@@ -138,6 +139,16 @@
                 <version>${aws.lambda.core.events}</version>
             </dependency>
             <dependency>
+                <groupId>com.microsoft.azure</groupId>
+                <artifactId>azure-eventhubs</artifactId>
+                <version>${azure.eventhub.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.microsoft.azure</groupId>
+                <artifactId>azure-eventhubs-eph</artifactId>
+                <version>${azure.eventhub.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>io.lettuce</groupId>
                 <artifactId>lettuce-core</artifactId>
                 <version>${lettuce.version}</version>
@@ -228,6 +239,18 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.projectlombok</groupId>

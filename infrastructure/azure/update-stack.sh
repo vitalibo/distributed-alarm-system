@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -e
+cd $(dirname $0)
+
+if [[ $# -ne 1 ]] ; then
+  echo "Usage: $0 [stage]"
+  echo ''
+  echo 'Options:'
+  echo '  stage         The JSON file which contains environment configuration'
+  exit 1
+fi
+
+STAGE="stage/$1.json"
+
+function param() {
+  jq -r ".parameters.$1.value" $STAGE
+}
+
+LOCATION=`param 'location'`
+RESOURCE_GROUP="`param 'name'`-`param 'environment'`"
+VERSION=`date -u +%Y%m%dT%H%M%SZ`
+
+if [[ `az group exists --name $RESOURCE_GROUP` == 'false' ]] ; then
+  echo 'Create resource group'
+  az group create --name $RESOURCE_GROUP --location $LOCATION --output none
+else
+  ENABLE_ROLLBACK='--rollback-on-error'
+fi
+
+echo 'Create/Update stack initialized'
+az group deployment create $ENABLE_ROLLBACK \
+  --name "$RESOURCE_GROUP-$VERSION" \
+  --mode Complete \
+  --resource-group $RESOURCE_GROUP \
+  --template-file stack.json \
+  --parameters "@$STAGE" \
+  --query 'properties.outputs'

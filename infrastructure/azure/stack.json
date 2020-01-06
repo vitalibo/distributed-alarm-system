@@ -23,7 +23,11 @@
   },
   "variables": {
     "storageAccount": "[concat(parameters('name'), parameters('environment'))]",
-    "namespace": "[concat(parameters('name'), '-', parameters('environment'), '-namespace')]"
+    "namespace": "[concat(parameters('name'), '-', parameters('environment'), '-namespace')]",
+    "serverfarm": "[concat(parameters('name'), '-', parameters('environment'), '-serverfarm')]",
+    "functions": "[concat(parameters('name'), '-', parameters('environment'), '-functions')]",
+    "insight": "[concat(parameters('name'), '-', parameters('environment'), '-insight')]",
+    "databaseAccount": "[concat(parameters('name'), '-', parameters('environment'), '-cosmosdb')]"
   },
   "resources": [
     {
@@ -120,6 +124,215 @@
         "messageRetentionInDays": 1,
         "partitionCount": 2,
         "status": "Active"
+      }
+    },
+    {
+      "type": "Microsoft.EventHub/namespaces/eventhubs",
+      "apiVersion": "2017-04-01",
+      "name": "[concat(variables('namespace'), '/rule-eventhub')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.EventHub/namespaces', variables('namespace'))]"
+      ],
+      "properties": {
+        "messageRetentionInDays": 1,
+        "partitionCount": 2,
+        "status": "Active"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2018-02-01",
+      "name": "[variables('serverfarm')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Y1",
+        "tier": "Dynamic"
+      },
+      "kind": "functionapp",
+      "properties": {
+        "name": "[variables('serverfarm')]",
+        "workerSize": 0,
+        "workerSizeId": 0,
+        "numberOfWorkers": 1,
+        "hostingEnvironment": ""
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2018-11-01",
+      "name": "[variables('functions')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('serverfarm'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccount'))]",
+        "[resourceId('Microsoft.Insights/components', variables('insight'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers',  variables('databaseAccount'), parameters('name'), 'rule')]"
+      ],
+      "kind": "functionapp",
+      "properties": {
+        "name": "[variables('functions')]",
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('serverfarm'))]",
+        "siteConfig": {
+          "appSettings": [
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~2"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "java"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(concat('microsoft.insights/components/', variables('insight')), '2015-05-01').InstrumentationKey]"
+            },
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccount'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccount')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value, ';EndpointSuffix=core.windows.net')]"
+            },
+            {
+              "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccount'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccount')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value, ';EndpointSuffix=core.windows.net')]"
+            },
+            {
+              "name": "RULE_COSMOS_DB_CONNECTION_STRING",
+              "value": "[concat('AccountEndpoint=https://', variables('databaseAccount') ,'.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('databaseAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';')]"
+            },
+            {
+              "name": "RULE_EVENT_HUB_CONNECTION_STRING",
+              "value": "[concat('Endpoint=sb://', variables('namespace'), '.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=', listkeys(resourceId('Microsoft.EventHub/namespaces/authorizationRules', variables('namespace'), 'RootManageSharedAccessKey'), '2017-04-01').primaryKey)]"
+            },
+            {
+              "name": "WEBSITE_CONTENTSHARE",
+              "value": "[concat(toLower(parameters('name')), '8a1b1')]"
+            }
+          ]
+        },
+        "hostingEnvironment": "",
+        "clientAffinityEnabled": true
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2015-05-01",
+      "name": "[variables('insight')]",
+      "location": "[parameters('location')]",
+      "tags": {},
+      "properties": {
+        "ApplicationId": "[variables('insight')]",
+        "Request_Source": "IbizaWebAppExtensionCreate"
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2019-08-01",
+      "name": "[variables('databaseAccount')]",
+      "location": "[parameters('location')]",
+      "tags": {
+        "defaultExperience": "Core (SQL)",
+        "hidden-cosmos-mmspecial": ""
+      },
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "enableAutomaticFailover": false,
+        "enableMultipleWriteLocations": false,
+        "isVirtualNetworkFilterEnabled": false,
+        "virtualNetworkRules": [],
+        "disableKeyBasedMetadataWriteAccess": false,
+        "databaseAccountOfferType": "Standard",
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session",
+          "maxIntervalInSeconds": 5,
+          "maxStalenessPrefix": 100
+        },
+        "locations": [
+          {
+            "locationName": "[parameters('location')]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ],
+        "capabilities": []
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+      "apiVersion": "2019-08-01",
+      "name": "[concat(variables('databaseAccount'), '/', parameters('name'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('databaseAccount'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[parameters('name')]"
+        },
+        "options": {}
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2019-08-01",
+      "name": "[concat(variables('databaseAccount'), '/', parameters('name'), '/rule')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('databaseAccount'), parameters('name'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('databaseAccount'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "rule",
+          "defaultTtl": -1,
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "automatic": true,
+            "includedPaths": [
+              {
+                "path": "/*",
+                "indexes": [
+                  {
+                    "kind": "Range",
+                    "dataType": "Number",
+                    "precision": -1
+                  },
+                  {
+                    "kind": "Range",
+                    "dataType": "String",
+                    "precision": -1
+                  },
+                  {
+                    "kind": "Spatial",
+                    "dataType": "Point"
+                  }
+                ]
+              }
+            ],
+            "excludedPaths": [
+              {
+                "path": "/\"_etag\"/?"
+              }
+            ]
+          },
+          "conflictResolutionPolicy": {
+            "mode": "LastWriterWins",
+            "conflictResolutionPath": "/_ts"
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/throughputSettings",
+      "apiVersion": "2019-08-01",
+      "name": "[concat(variables('databaseAccount'), '/', parameters('name'), '/rule/default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers',  variables('databaseAccount'), parameters('name'), 'rule')]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('databaseAccount'), parameters('name'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('databaseAccount'))]"
+      ],
+      "properties": {
+        "resource": {
+          "throughput": 400
+        }
       }
     }
   ],

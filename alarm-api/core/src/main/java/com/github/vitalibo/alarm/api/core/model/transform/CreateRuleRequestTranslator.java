@@ -7,6 +7,7 @@ import com.github.vitalibo.alarm.api.core.model.RuleCondition;
 import com.github.vitalibo.alarm.api.core.util.Jackson;
 
 import java.util.Map;
+import java.util.Optional;
 
 public final class CreateRuleRequestTranslator {
 
@@ -19,7 +20,9 @@ public final class CreateRuleRequestTranslator {
 
         return new CreateRuleRequest()
             .withMetricName((String) body.get("metricName"))
-            .withCondition(RuleCondition.valueOf((String) body.get("condition")))
+            .withCondition(Optional.ofNullable((String) body.get("condition"))
+                .map(RuleCondition::valueOf)
+                .orElse(null))
             .withThreshold((Double) body.get("threshold"));
     }
 

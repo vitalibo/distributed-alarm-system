@@ -17,9 +17,10 @@ function param() {
   jq -r ".parameters.$1.value" $STAGE
 }
 
-ENVIRONMENT=`param 'Environment'`
+ENVIRONMENT=`param 'environment'`
+NAME=`param 'name'`
 LOCATION=`param 'location'`
-RESOURCE_GROUP="`param 'name'`-`param 'environment'`"
+RESOURCE_GROUP="$NAME-$ENVIRONMENT"
 VERSION=`date -u +%Y%m%dT%H%M%SZ`
 
 if [[ `az group exists --name $RESOURCE_GROUP` == 'false' ]] ; then
@@ -39,5 +40,10 @@ az group deployment create $ENABLE_ROLLBACK \
   --query 'properties.outputs'
 
 echo 'Package/Copy artifacts initialized'
-mvn clean package -pl alarm-api/azure -am -DskipTests=true -P $ENVIRONMENT -f ./../../pom.xml
+mvn clean package \
+  -pl alarm-api/azure -am -DskipTests=true -P $ENVIRONMENT -f ./../../pom.xml \
+  -DfunctionAppName=$RESOURCE_GROUP-functions \
+  -DfunctionAppRegion=$LOCATION \
+  -DfunctionResourceGroup=$RESOURCE_GROUP
+
 mvn azure-functions:deploy -f ./../../alarm-api/azure/pom.xml

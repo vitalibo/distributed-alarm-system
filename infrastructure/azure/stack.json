@@ -206,6 +206,10 @@
             {
               "name": "WEBSITE_CONTENTSHARE",
               "value": "[concat(toLower(parameters('name')), '8a1b1')]"
+            },
+            {
+              "name": "COSMOSDB_MASTER_KEY",
+              "value": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('databaseAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey]"
             }
           ]
         },

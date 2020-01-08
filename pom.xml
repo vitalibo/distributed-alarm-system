@@ -32,6 +32,7 @@
         <azure.eventhub.version>3.0.2</azure.eventhub.version>
         <azure.functions.version>1.3.1</azure.functions.version>
         <azure.functions.plugin.version>1.4.0</azure.functions.plugin.version>
+        <azure.documentdb.version>2.4.5</azure.documentdb.version>
         <lettuce.version>5.1.7.RELEASE</lettuce.version>
         <apache.commons.pool2.version>2.7.0</apache.commons.pool2.version>
         <mysql.version>6.0.6</mysql.version>
@@ -155,6 +156,11 @@
                 <groupId>com.microsoft.azure.functions</groupId>
                 <artifactId>azure-functions-java-library</artifactId>
                 <version>${azure.functions.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.microsoft.azure</groupId>
+                <artifactId>azure-documentdb</artifactId>
+                <version>${azure.documentdb.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.lettuce</groupId>

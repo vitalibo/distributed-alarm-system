@@ -1,0 +1,24 @@
+[
+  [
+    {
+      "table": "#1",
+      "payload": {
+        "foo": "bar"
+      }
+    },
+    {
+      "table": "#1",
+      "payload": {
+        "bar": 1
+      }
+    }
+  ],
+  [
+    {
+      "table": "#3",
+      "payload": {
+        "baz": "taz"
+      }
+    }
+  ]
+]

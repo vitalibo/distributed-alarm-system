@@ -1,0 +1,30 @@
+[
+  [
+    {
+      "documents": [
+        {
+          "foo": "bar"
+        },
+        {
+          "bar": 1
+        }
+      ],
+      "functionName": "#1"
+    },
+    {
+      "documents": [
+      ],
+      "functionName": "#2"
+    }
+  ],
+  [
+    {
+      "documents": [
+        {
+          "baz": "taz"
+        }
+      ],
+      "functionName": "#3"
+    }
+  ]
+]

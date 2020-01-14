@@ -33,6 +33,8 @@
         <azure.functions.version>1.3.1</azure.functions.version>
         <azure.functions.plugin.version>1.4.0</azure.functions.plugin.version>
         <azure.documentdb.version>2.4.5</azure.documentdb.version>
+        <azure.eventhub.spark.version>2.3.14.1</azure.eventhub.spark.version>
+        <azure.cosmosdb.spark.version>1.4.1</azure.cosmosdb.spark.version>
         <lettuce.version>5.1.7.RELEASE</lettuce.version>
         <apache.commons.pool2.version>2.7.0</apache.commons.pool2.version>
         <mysql.version>6.0.6</mysql.version>
@@ -141,6 +143,16 @@
                 <groupId>com.amazonaws</groupId>
                 <artifactId>aws-lambda-java-events</artifactId>
                 <version>${aws.lambda.core.events}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.microsoft.azure</groupId>
+                <artifactId>azure-eventhubs-spark_${scala.version}</artifactId>
+                <version>${azure.eventhub.spark.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.microsoft.azure</groupId>
+                <artifactId>azure-cosmosdb-spark_${spark.version}_${scala.version}</artifactId>
+                <version>${azure.cosmosdb.spark.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.microsoft.azure</groupId>

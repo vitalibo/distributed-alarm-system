@@ -2,10 +2,9 @@ package com.github.vitalibo.alarm.processor.core.util;
 
 import com.github.vitalibo.alarm.processor.core.util.function.Function;
 import lombok.RequiredArgsConstructor;
-import scala.Function1;
-import scala.Serializable;
-import scala.Tuple2;
-import scala.Tuple3;
+import scala.*;
+import scala.collection.JavaConverters;
+import scala.collection.immutable.Map;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
 import scala.runtime.AbstractFunction1;
@@ -38,6 +37,12 @@ public final class ScalaTypes {
         return Arrays.stream(cls)
             .map(Class::getName)
             .collect(Collectors.joining(","));
+    }
+
+    public static <K, V> Map<K, V> asImmutableMap(java.util.Map<K, V> map) {
+        return JavaConverters.mapAsScalaMapConverter(map)
+            .asScala()
+            .toMap(Predef.conforms());
     }
 
     @RequiredArgsConstructor

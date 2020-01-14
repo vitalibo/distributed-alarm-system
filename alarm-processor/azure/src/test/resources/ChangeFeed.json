@@ -1,0 +1,18 @@
+{
+  "documents": [
+    {
+      "id": "1S3F",
+      "_rid": "0VcxANKdtfgHAAAAAAAAAA==",
+      "_self": "dbs/0VcxAA==/colls/0VcxANKdtfg=/docs/0VcxANKdtfgHAAAAAAAAAA==/",
+      "_ts": 1578359227,
+      "_etag": "\"aa00cd3d-0000-0800-0000-5e13d9bb0000\"",
+      "metricName": "foo",
+      "condition": "GreaterThanThreshold",
+      "threshold": 121.32,
+      "_lsn": 35,
+      "_metadata": {}
+    }
+  ],
+  "functionName": "CosmosDBTrigger",
+  "invocationId": "56cfc1ec-a318-4664-8ef7-6608ce8a36de"
+}

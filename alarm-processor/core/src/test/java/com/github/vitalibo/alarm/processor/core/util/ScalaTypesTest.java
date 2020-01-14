@@ -4,7 +4,10 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 import scala.Function1;
 import scala.Tuple2;
+import scala.collection.immutable.Map;
 import scala.reflect.ClassTag;
+
+import java.util.Collections;
 
 public class ScalaTypesTest {
 
@@ -30,6 +33,15 @@ public class ScalaTypesTest {
         Assert.assertNotNull(actual);
         Assert.assertEquals(actual._1, "foo");
         Assert.assertEquals(actual._2, "bar");
+    }
+
+    @Test
+    public void testAsImmutableMap() {
+        Map<String, String> actual = ScalaTypes.asImmutableMap(Collections.singletonMap("foo", "bar"));
+
+        Assert.assertNotNull(actual);
+        Assert.assertTrue(actual instanceof scala.collection.immutable.Map);
+        Assert.assertEquals(actual.get("foo").get(), "bar");
     }
 
 }

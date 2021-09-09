@@ -3,6 +3,7 @@
 Simple distributed alarm system on top of Apache Spark
 
 [![Build Status](https://travis-ci.org/vitalibo/distributed-alarm-system.svg?branch=master)](https://travis-ci.org/vitalibo/distributed-alarm-system)
+[![Language grade: Java](https://img.shields.io/lgtm/grade/java/g/vitalibo/distributed-alarm-system.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/vitalibo/distributed-alarm-system/context:java)
 
 ![Diagram](https://fwtbbmf399.execute-api.us-east-1.amazonaws.com/Prod/svg?source=https://raw.githubusercontent.com/vitalibo/distributed-alarm-system/master/readme.md&name=diagram.svg)
 
